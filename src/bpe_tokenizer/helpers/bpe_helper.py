@@ -102,7 +102,7 @@ def process_chunk(start_end:tuple[int, int], file_path, split, pat):
 
             # Apply string splitting and get an sting Iterable
             # String"some text" -> Iterable['some', ' text']
-            for match in re.finditer(pat, safe_chunk.decode("utf-8")):
+            for match in re.finditer(pat, safe_chunk.decode("utf-8", errors="ignore")): # Ignore the
                 # subtring (b"low) -> (b"l", b"o", b"w")
                 substr_enc = match.group().encode("utf-8")
                 tokens = bytes_2_tuple(substr_enc)

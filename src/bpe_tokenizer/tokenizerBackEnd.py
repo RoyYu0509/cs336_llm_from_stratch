@@ -1,4 +1,4 @@
-from src.bpe_tokenizer.tokenizer_interface import AbstractPreTokenizer
+from src.bpe_tokenizer.tokenizeInterface import AbstractPreTokenizer
 from src.bpe_tokenizer.helpers.bpe_helper import *
 import regex as re
 from concurrent.futures import ProcessPoolExecutor
@@ -6,6 +6,7 @@ from collections import Counter
 from tqdm import tqdm
 import time
 ECHO = False
+from typing import Dict, List, Tuple
 
 
 class BBPE(AbstractPreTokenizer):
@@ -110,12 +111,11 @@ class BBPE(AbstractPreTokenizer):
                 print(f"Warning: empty counter from chunk")
             self.pretok_dict.update(counter)
 
-
     """
     Train Tokenizer
     """
     def train(self, input_path, vocab_size,
-              num_processes = 3, split_special_token = b"<|endoftext|>"):
+              num_processes = 3, split_special_token = b"<|endoftext|>") -> Tuple[Dict, List]:
         """
         Train a BPE Tokenizer, return the resulted vocabular and merges sequence.
 
@@ -143,11 +143,13 @@ class BBPE(AbstractPreTokenizer):
         total_merges_needed = max(0, vocab_size - start_size)
         pbar = tqdm(total=total_merges_needed, desc="Merging BPE pairs", unit="merge")
 
+        # Keep merging to collect vocabulary
         while self.byte_2_id_size < vocab_size:
-            merged_bts = self._merge()
+            merged_bts = self._merge()  # Both b2id & id2b mappings are updated during merges
             merges_sequence.append(merged_bts)
             pbar.set_postfix_str(f"last={merged_bts}")
             i+=1
+
         pbar.close()
         self.merge_sequence = merges_sequence
         return self.id_2_bytes, merges_sequence
@@ -172,7 +174,7 @@ class BBPE(AbstractPreTokenizer):
                 self.freq_dict[(curr, next)] = self.freq_dict.get((curr, next), 0) + count
         # If there is no pair to merge
         if not self.freq_dict:
-            raise ValueError("There is no byte pair to merge!")
+            print("There is no byte pair to merge!")
 
     def _merge(self) -> tuple[bytes, bytes]:
         """
@@ -265,7 +267,7 @@ class BBPE(AbstractPreTokenizer):
 
     def _text_2_pretoken_iterator(self, text: str):
         """
-        Convert the a sequence of text to a list of bytes, perserving special tokens
+        Convert a sequence of text to a list of bytes, perserving special tokens
         """
         # Split into: non-special, special, non-special, ...
         parts = re.split(self.SPECIAL_RE, text)
