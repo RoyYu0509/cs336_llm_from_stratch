@@ -9,7 +9,7 @@ import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
-
+from src.transfromer.linear_module import Linear
 def run_linear(
     d_in: int,
     d_out: int,
@@ -28,10 +28,15 @@ def run_linear(
     Returns:
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
+    linear = Linear(d_in, d_out)
+    para_dict = {
+        "weightMat": weights 
+    }
+    linear.load_state_dict(para_dict)
+    return linear.forward(in_features)
 
-    raise NotImplementedError
 
-
+from src.transfromer.embedding import Embedding
 def run_embedding(
     vocab_size: int,
     d_model: int,
@@ -50,8 +55,12 @@ def run_embedding(
     Returns:
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
-
-    raise NotImplementedError
+    embedding = Embedding(vocab_size, d_model)
+    para_dict = {
+        "embed_mat": weights
+    }
+    embedding.load_state_dict(para_dict)
+    return embedding.forward(token_ids)
 
 
 def run_swiglu(
@@ -357,7 +366,7 @@ def run_transformer_lm(
     """
     raise NotImplementedError
 
-
+from src.transfromer.rmsnorm import Rmsnorm
 def run_rmsnorm(
     d_model: int,
     eps: float,
@@ -378,7 +387,12 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
+    rsmnorm = Rmsnorm(d_model, eps)
+    para_dict = {
+        "gain": weights
+    }
+    rsmnorm.load_state_dict(para_dict)
+    return rsmnorm.forward(in_features)
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
