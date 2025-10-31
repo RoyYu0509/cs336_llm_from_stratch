@@ -63,6 +63,9 @@ def run_embedding(
     return embedding.forward(token_ids)
 
 
+
+
+from src.transfromer.pointwise_ffn import PointwiseSGLUactFFN
 def run_swiglu(
     d_model: int,
     d_ff: int,
@@ -92,7 +95,15 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+    silu_ffn = PointwiseSGLUactFFN(d_model, dim_ff=d_ff, dtype=in_features.dtype)
+    para_dict = {
+        "W1": w1_weight,
+        "W2": w2_weight,
+        "W3": w3_weight,
+    }
+    # Load Parameters
+    silu_ffn.load_state_dict(para_dict)
+    return silu_ffn.forward(in_features)
 
 
 def run_scaled_dot_product_attention(
@@ -394,7 +405,6 @@ def run_rmsnorm(
     rsmnorm.load_state_dict(para_dict)
     return rsmnorm.forward(in_features)
 
-
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
     """Given a tensor of inputs, return the output of applying SiLU
     to each element.
@@ -406,7 +416,7 @@ def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
         Float[Tensor,"..."]: of with the same shape as `in_features` with the output of applying
         SiLU to each element.
     """
-    raise NotImplementedError
+    pass
 
 
 def run_get_batch(
