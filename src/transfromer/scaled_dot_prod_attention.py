@@ -31,6 +31,9 @@ def scaled_dot_product_attention(query, key, value, bool_mask=None):
     query:      (... n,d_k) = (batch_size, ..., seq_len, d_k)
     value:      (... n,d_v) = (batch_size, ..., seq_len, d_v)
     bool_mask:  (seq_len, seq_len)
+
+    Return:
+        - attention: Float[Tensor, "... seq_q d_v"]
     """
     # Compute Normalized QtK & Apply Mask
     norm_qk: Float[torch.Tensor, "... seq_q, seq_k"]
@@ -43,6 +46,7 @@ def scaled_dot_product_attention(query, key, value, bool_mask=None):
     softmax_qk = softmax(norm_qk, axis=-1)
 
     # Attention
+    attention: Float[Tensor, "... seq_q d_v"]
     attention = einsum(softmax_qk, value, "... seq_q seq_k, ... seq_k d_v -> ... seq_q d_v")
 
     return attention
