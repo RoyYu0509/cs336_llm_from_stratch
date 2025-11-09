@@ -40,6 +40,11 @@ class PosEncod:
     def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None):
         """
         Construct the RoPE module and create buffers if needed.
+        
+        Parameters:
+            - theta: float      Constant value for computing frequency
+            - d_k: int          Dimension of the token vectors.
+            - max_seq_len: int  Maximum sequence length of our input tokens.
         """
         self.theta = theta
         self.d_k = d_k
@@ -83,7 +88,7 @@ class PosEncod:
         
         # Unpack x into several 2-dim vec
         reshape_x = rearrange(x, "... seq (half_d in_vec) -> ... seq half_d in_vec", half_d = d//2, in_vec = 2)
-        Rx = einsum(Rs, reshape_x, "seq half_d out_vec in_vec, ... seq half_d in_vec -> ... seq half_d out_vec")
+        Rx = einsum(Rs, reshape_x, "... seq half_d out_vec in_vec, ... seq half_d in_vec -> ... seq half_d out_vec")
         reshape_Rx = rearrange(Rx, "... seq half_d out_vec -> ... seq (half_d out_vec)")
         # print(reshape_Rx.shape, x.shape)
         if is_odd_d:

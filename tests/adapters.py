@@ -158,9 +158,19 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    mha = MultiHeadsAttention()
+    mha = MultiHeadsAttention(d_model, num_heads, device=in_features.device, dtype=in_features.dtype)
+    para_dict = {
+        "W_Q":q_proj_weight,
+        "W_K":k_proj_weight,
+        "W_V":v_proj_weight,
+        "W_O":o_proj_weight
+    }
+    mha.load_state_dict(para_dict)
+
+    return mha.forward(in_features)
 
 
+from src.transfromer.positionalNencoding import PosEncod
 def run_multihead_self_attention_with_rope(
     d_model: int,
     num_heads: int,
@@ -198,7 +208,19 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+
+    rope = PosEncod(theta, in_features.shape[-1]//num_heads, max_seq_len, device=in_features.device)
+
+    mha = MultiHeadsAttention(d_model, num_heads, rope, token_positions,device=in_features.device, dtype=in_features.dtype)
+    para_dict = {
+        "W_Q":q_proj_weight,
+        "W_K":k_proj_weight,
+        "W_V":v_proj_weight,
+        "W_O":o_proj_weight
+    }
+    mha.load_state_dict(para_dict)
+
+    return mha.forward(in_features)
 
 from src.transfromer.positionalNencoding import PosEncod
 def run_rope(

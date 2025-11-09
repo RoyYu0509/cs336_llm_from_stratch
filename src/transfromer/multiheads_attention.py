@@ -6,58 +6,68 @@ from src.transfromer.para_init import trunct_normal_para_init
 from src.transfromer.scaled_dot_prod_attention import softmax, scaled_dot_product_attention
 
 class MultiHeadsAttention(torch.nn.Module):
-    def __init__(self,d_model: int, heads_num: int, device=None, dtype=torch.float16):
+    def __init__(self,d_model: int, heads_num: int, pos_encod=None, token_positions=None, device=None, dtype=torch.float16):
         """
         A Multi-Heads Attention Module
 
         Parameters:
             d_model:    int Dimensionality of input token vector.
             num_heads:  int Number of heads to use in multi-head self-attention.
+
+        Attributes:
+            heads_num:  int Number of Attention Heads
         """
         super().__init__()
         self.device = device
         self.dtype = dtype
         self.heads_num = heads_num
         self.d_model = d_model
-        self.d_k = d_model/heads_num
-        self.d_v = d_model/heads_num 
+        self.d_k = d_model//heads_num
+        self.d_v = d_model//heads_num 
 
         # Define the projection matrix
-        W_dim_in = heads_num*self.d_k
+        W_dim_in = int(heads_num*self.d_k)
         W_dim_out = d_model
         W_Q: Float[Tensor, "(h d_k) d_model"] = trunct_normal_para_init(
             W_dim_in, W_dim_out, 
             mu=0, var=2/(W_dim_out+W_dim_in), truc_magnitude=3,
             device=device, dtype=dtype
         )
-        W_Q = rearrange(W_Q, "(h d_k) d_model -> h d_k d_model")
         self.W_Q = torch.nn.Parameter(W_Q)
+        # self.W_Q = torch.nn.Parameter(rearrange(self.W_Q, "(h d_k) d_model -> h d_k d_model", 
+        #                               h = self.heads_num, d_k = self.d_k))
 
         W_K: Float[Tensor, "(h d_k) d_model"] = trunct_normal_para_init(
             W_dim_in, W_dim_out, 
             mu=0, var=2/(W_dim_out+W_dim_in), truc_magnitude=3,
             device=device, dtype=dtype
         )
-        W_K = rearrange(W_K, "(h d_k) d_model -> h d_k d_model")
-        self.W_k = torch.nn.Parameter(W_k)
+        self.W_K = torch.nn.Parameter(W_K)
+        # self.W_K = torch.nn.Parameter(rearrange(self.W_K, "(h d_k) d_model -> h d_k d_model",
+        #                               h = self.heads_num, d_k = self.d_k))
 
         W_V: Float[Tensor, "(h d_v) d_model"] = trunct_normal_para_init(
             W_dim_in, W_dim_out, 
             mu=0, var=2/(W_dim_out+W_dim_in), truc_magnitude=3,
             device=device, dtype=dtype
         )
-        W_V = rearrange(W_V, "(h d_v) d_model -> h d_v d_model")
         self.W_V = torch.nn.Parameter(W_V) 
+        # self.W_V = torch.nn.Parameter(rearrange(self.W_V, "(h d_v) d_model -> h d_v d_model",
+        #                               h = self.heads_num, d_v = self.d_v))
 
         # Define the Out Matrix
         Out_dim_in = d_model
-        Out_dim_out = heads_num*self.d_v
+        Out_dim_out = int(heads_num*self.d_v)
         W_O: Float[Tensor, "d_model (h d_v)"] = trunct_normal_para_init(
             Out_dim_in, Out_dim_out, 
             mu=0, var=2/(W_dim_out+W_dim_in), truc_magnitude=3,
             device=device, dtype=dtype
         )
         self.W_O = torch.nn.Parameter(W_O)  
+
+        # Add Positional Encoding
+        self.pos_encod = pos_encod 
+        self.token_positions = token_positions
 
     def _multiHead(self, x):
         """
@@ -69,13 +79,21 @@ class MultiHeadsAttention(torch.nn.Module):
         x: Float[Tensor, f"... seq d_model"]  
         
         Q: Float[Tensor, f"... seq h d_k d_model"]
-        Q = einsum(self.W_Q, x, "h d_k d_model, ... seq d_model -> ... h seq d_k")
+        W_Q = rearrange(self.W_Q, "(h d_k) d_model -> h d_k d_model", h = self.heads_num, d_k = self.d_k)
+        Q = einsum(W_Q, x, "h d_k d_model, ... seq d_model -> ... h seq d_k")
         
         K: Float[Tensor, f"... seq h d_k d_model"]
-        K = einsum(self.W_K, x, "h d_k d_model, ... seq d_model -> ... h seq d_k")
+        W_K = rearrange(self.W_K, "(h d_k) d_model -> h d_k d_model", h = self.heads_num, d_k = self.d_k)
+        K = einsum(W_K, x, "h d_k d_model, ... seq d_model -> ... h seq d_k")
 
         V: Float[Tensor, f"... seq h d_v d_model"]
-        V = einsum(self.W_V, x, "h d_v d_model, ... seq d_model -> ... h seq d_v")
+        W_V = rearrange(self.W_V, "(h d_v) d_model -> h d_v d_model", h = self.heads_num, d_v = self.d_v)
+        V = einsum(W_V, x, "h d_v d_model, ... seq d_model -> ... h seq d_v")
+
+        # Add position encoding
+        if self.pos_encod is not None and self.token_positions is not None:
+            Q = self.pos_encod.forward(Q, self.token_positions)
+            K = self.pos_encod.forward(K, self.token_positions)
 
         bool_mask = self._build_mask(x)
 
@@ -104,8 +122,8 @@ class MultiHeadsAttention(torch.nn.Module):
         multi_head_attention: Float[Tensor, "... h seq_q d_v"]
         multi_head_attention = self._multiHead(x)
 
-        multi_head_attention = rearrange(multi_head_attention, "... h seq d_v -> ... seq (h*d_v)")
-        self.W_O: Float[Tensor, "d_model (h*d_v)"]
-        out = einsum(self.W_O, multi_head_attention, "d_model (h*d_v), ... seq (h*d_v) -> ... seq d_model")
+        multi_head_attention = rearrange(multi_head_attention, "... h seq d_v -> ... seq (h d_v)")
+        self.W_O: Float[Tensor, "d_model (h_d_v)"]
+        out = einsum(self.W_O, multi_head_attention, "d_model (h_d_v), ... seq (h_d_v) -> ... seq d_model")
         return out
 
