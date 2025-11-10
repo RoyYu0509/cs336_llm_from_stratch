@@ -94,8 +94,8 @@ class PosEncod:
         
         # Unpack x into several 2-dim vec
         reshape_x = rearrange(x, "... seq (half_d in_vec) -> ... seq half_d in_vec", half_d = d//2, in_vec = 2)
-        print(f"Shape of Rs: {Rs.shape}")
-        print(f"Shape of reshape_x: {reshape_x.shape}")
+        # print(f"Shape of Rs: {Rs.shape}")
+        # print(f"Shape of reshape_x: {reshape_x.shape}")
         Rx = einsum(Rs, reshape_x, "... seq half_d out_vec in_vec, ... seq half_d in_vec -> ... seq half_d out_vec")
         reshape_Rx = rearrange(Rx, "... seq half_d out_vec -> ... seq (half_d out_vec)")
         # print(reshape_Rx.shape, x.shape)
