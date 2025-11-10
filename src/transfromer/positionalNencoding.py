@@ -78,7 +78,7 @@ class PosEncod:
             - x: the input batch data
             - token_positions: (..., seq_len) specifying the token positions of x along the sequence dimension.
         """
-        
+        token_positions:Float[Tensor, "seq"]
         x, token_positions = x.to(self.device), token_positions.to(self.device)
         # Pad a dummy dimension if the d_k is odd
         d = self.d_k
@@ -89,7 +89,8 @@ class PosEncod:
         
         # Get the Rotation Matrix
         Rs: Float[Tensor, f"seq, half_d, in_vec, out_vec"]
-        Rs = self.Rs[token_positions].to(x.dtype) # Retrieve only the relavent position
+        position = token_positions[:x.shape[-2]] # Select the same len as the input sequence.
+        Rs = self.Rs[position].to(x.dtype) # Retrieve only the relavent position
         
         # Unpack x into several 2-dim vec
         reshape_x = rearrange(x, "... seq (half_d in_vec) -> ... seq half_d in_vec", half_d = d//2, in_vec = 2)

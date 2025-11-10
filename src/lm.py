@@ -16,7 +16,7 @@ class TransformerLM(nn.Module):
                  d_model: int, heads_num: int, # Multi-Head Attention args
                  d_ff: int, # FNN args
                  theta: float, # Encoder para
-                 pos_encod=None, token_positions=None, # Multi-Head Attention kwargs
+                 pos_encod=None, # Multi-Head Attention kwargs
                  eps: float = 1e-5, # rmsnorm kwargs
                  latent_exp_factor = 8/3, # FNN kwargs
                  device=None, dtype=torch.float16,  # general kwargs
@@ -41,16 +41,18 @@ class TransformerLM(nn.Module):
         self.in_embedding = Embedding(num_embeddings=vocab_size, embedding_dim=d_model,
                                    device=device, dtype=dtype)
 
-        # Transformer Blocks
+        # Positional Encoder
         if pos_encod is None:
             pos_encoder = PosEncod(theta, d_model//heads_num, context_length, device=device)
-        if token_positions is None:
-            token_positions = torch.arange(0, context_length)
+        self.token_positions = torch.arange(0, context_length)
+        
+        # Transformer Blocks
         self.tf_layers = nn.ModuleList([
             PreNormTransformer(
                 d_model, heads_num,
                 d_ff,
-                pos_encod=pos_encoder, token_positions=token_positions,
+                pos_encod=pos_encoder, token_positions=self.token_positions,
+                latent_exp_factor=latent_exp_factor,
                 device = device, dtype=dtype
             ) for _ in range(num_layers)
         ])
