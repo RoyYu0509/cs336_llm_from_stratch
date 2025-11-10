@@ -19,7 +19,7 @@ class TransformerLM(nn.Module):
                  pos_encod=None, # Multi-Head Attention kwargs
                  eps: float = 1e-5, # rmsnorm kwargs
                  latent_exp_factor = 8/3, # FNN kwargs
-                 device=None, dtype=torch.float16,  # general kwargs
+                 device=None, dtype=torch.float32,  # general kwargs
                  ):
         """
         A transformer block.
@@ -61,7 +61,7 @@ class TransformerLM(nn.Module):
         self.norm = Rmsnorm(d_model, eps, device, dtype)
 
         # Output Linear Block
-        self.head = Linear(d_model, vocab_size)
+        self.head = Linear(d_model, vocab_size, device=device, dtype=dtype)
 
 
     def forward(self, x):
@@ -80,8 +80,9 @@ class TransformerLM(nn.Module):
         x = self.norm.forward(x)
 
         x = self.head.forward(x)
-
-        return softmax(x, -1)
+        
+        # softmax(x, -1)  # Softmax muted, Return raw logit
+        return x
 
         
         
