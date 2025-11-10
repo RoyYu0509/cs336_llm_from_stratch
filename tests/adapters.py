@@ -246,6 +246,8 @@ def run_rope(
     return pos_encoder.forward(in_query_or_key, token_positions)
 
 
+from src.transformer.transformer import PreNormTransformer
+
 def run_transformer_block(
     d_model: int,
     num_heads: int,
@@ -316,8 +318,33 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+    d_k = d_model//num_heads
+    pos_encoder = PosEncod(theta, d_k, max_seq_len, device=in_features.device)
 
+    tf_block = PreNormTransformer(d_model, num_heads,
+                                  d_ff,
+                                  pos_encoder, -1,
+                                  device = in_features.device, dtype=in_features.dtype)
+    tf_block.RMSN1.load_state_dict({"gain": weights["ln1.weight"]})
+    tf_block.RMSN2.load_state_dict({"gain": weights["ln2.weight"]})
+
+    tf_block.MHA.load_state_dict(
+        {
+            "W_Q":weights["attn.q_proj.weight"],
+            "W_K":weights["attn.k_proj.weight"],
+            "W_V":weights["attn.v_proj.weight"],
+            "W_O":weights["attn.o_proj.weight"]
+        }
+    )
+
+    tf_block.FNN.load_state_dict(
+        {
+            "W1": weights["ffn.w1.weight"],
+            "W2": weights["ffn.w2.weight"],
+            "W3": weights["ffn.w3.weight"],
+        }
+    )
+    return tf_block
 
 def run_transformer_lm(
     vocab_size: int,
