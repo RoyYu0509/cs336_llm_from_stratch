@@ -75,6 +75,7 @@ class PreNormTransformer(nn.Module):
     def forward(self,x:torch.Tensor):
         """
         Return the output from a transformer block.
+        (batch, seq, d_model) -> (batch, seq, d_model)
 
         Parameter:
             x: (batch, seq, d_model)

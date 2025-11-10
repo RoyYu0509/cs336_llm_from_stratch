@@ -320,7 +320,7 @@ def run_transformer_block(
     """
     d_k = d_model//num_heads
     pos_encoder = PosEncod(theta, d_k, max_seq_len, device=in_features.device)
-    toekn_position = -torch.ones_like(in_features[:, :, 0], dtype=torch.long)
+    toekn_position = torch.arange(0, in_features.shape[-2], dtype=torch.long, device=in_features.device)
     tf_block = PreNormTransformer(d_model, num_heads,
                                   d_ff,
                                   pos_encod=pos_encoder, token_positions=toekn_position,
