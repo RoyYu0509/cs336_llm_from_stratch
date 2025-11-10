@@ -320,10 +320,10 @@ def run_transformer_block(
     """
     d_k = d_model//num_heads
     pos_encoder = PosEncod(theta, d_k, max_seq_len, device=in_features.device)
-    toekn_position = torch.arange(0, in_features.shape[-2], dtype=torch.long, device=in_features.device)
+    token_position = torch.arange(0, in_features.shape[-2], dtype=torch.long, device=in_features.device)
     tf_block = PreNormTransformer(d_model, num_heads,
                                   d_ff,
-                                  pos_encod=pos_encoder, token_positions=toekn_position,
+                                  pos_encod=pos_encoder, token_positions=token_position,
                                   device = in_features.device, dtype=in_features.dtype)
     tf_block.RMSN1.load_state_dict({"gain": weights["ln1.weight"]})
     tf_block.RMSN2.load_state_dict({"gain": weights["ln2.weight"]})
@@ -346,6 +346,8 @@ def run_transformer_block(
     )
     return tf_block.forward(in_features)
 
+
+from src.lm import TransformerLM
 def run_transformer_lm(
     vocab_size: int,
     context_length: int,
@@ -370,7 +372,7 @@ def run_transformer_lm(
         num_heads (int): Number of heads to use in multi-headed attention. `d_model` must be
             evenly divisible by `num_heads`.
         d_ff (int): Dimensionality of the feed-forward inner layer (section 3.3).
-        rope_theta (float): The RoPE $\Theta$ parameter.
+        rope_theta (float): The RoPE $Theta$ parameter.
         weights (dict[str, Tensor]):
             State dict of our reference implementation. {num_layers} refers to an
             integer between `0` and `num_layers - 1` (the layer index).
@@ -425,7 +427,60 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+    device = in_indices.device
+    dtype = torch.float32
+    tf_lm = TransformerLM(
+        vocab_size, context_length, num_layers,
+        d_model, num_heads, d_ff, rope_theta, 
+        device=device, dtype=dtype
+    )
+    # Load in parameters
+    tf_lm.in_embedding.load_state_dict({
+        "embed_mat": weights["token_embeddings.weight"]
+    })
+    for i in range(num_layers):
+        tf_lm.tf_layers[i].RMSN1.load_state_dict(
+            {
+                "gain": weights[f"layers.{i}.ln1.weight"]
+            }
+        )
+        
+        tf_lm.tf_layers[i].MHA.load_state_dict(
+            {
+                "W_Q":weights[f"layers.{i}.attn.q_proj.weight"],
+                "W_K":weights[f"layers.{i}.attn.k_proj.weight"],
+                "W_V":weights[f"layers.{i}.attn.v_proj.weight"],
+                "W_O":weights[f"layers.{i}.attn.output_proj.weight"]
+            }
+        )
+
+        tf_lm.tf_layers[i].RMSN2.load_state_dict(
+            {
+                "gain": weights[f"layers.{i}.ln2.weight"]
+            }
+        )
+
+        tf_lm.tf_layers[i].FNN.load_state_dict(
+            {
+                "W1": weights[f"layers.{i}.ffn.w1.weight"],
+                "W2": weights[f"layers.{i}.ffn.w2.weight"],
+                "W3": weights[f"layers.{i}.ffn.w3.weight"],
+            }
+        )
+
+    tf_lm.norm.load_state_dict(
+        {
+            "gain": weights["ln_final.weight"]
+        }
+    )
+
+    tf_lm.head.load_state_dict(
+        {
+            "weightMat": weights["lm_head.weight"]
+        }
+    )
+    print(in_indices.shape)
+    return tf_lm.forward(in_indices)
 
 from src.transfromer.rmsnorm import Rmsnorm
 def run_rmsnorm(

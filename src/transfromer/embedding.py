@@ -31,3 +31,6 @@ class Embedding(torch.nn.Module):
         """Lookup the embedding vectors for the given token IDs."""
         # Simple row retrieving
         return self.embed_mat[token_ids]
+
+
+    
