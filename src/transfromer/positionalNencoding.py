@@ -21,7 +21,8 @@ class RoPE:
         self.theta = torch.tensor(theta, device=device, dtype = torch.float32)
     
     def getRotMat(self, i:int, k:int):
-        theta_ik = torch.tensor(i / (self.theta**((2*k)/self.d_k)), device=self.device)
+        theta_ik = i / (self.theta.clone()**((2*k)/self.d_k))
+        theta_ik = theta_ik.to(self.device)
         _cos = torch.cos(theta_ik)
         _sin = torch.sin(theta_ik)
         
@@ -72,6 +73,10 @@ class PosEncod:
         """
         Process an in_vecput tensor of shape (..., seq_len, d_k) and 
         return a tensor of the same shape.
+
+        Parameters:
+            - x: the input batch data
+            - token_positions: (..., seq_len) specifying the token positions of x along the sequence dimension.
         """
         
         x, token_positions = x.to(self.device), token_positions.to(self.device)
@@ -88,6 +93,8 @@ class PosEncod:
         
         # Unpack x into several 2-dim vec
         reshape_x = rearrange(x, "... seq (half_d in_vec) -> ... seq half_d in_vec", half_d = d//2, in_vec = 2)
+        # print(f"Shape of Rs: {Rs.shape}")
+        # print(f"Shape of reshape_x: {reshape_x.shape}")
         Rx = einsum(Rs, reshape_x, "... seq half_d out_vec in_vec, ... seq half_d in_vec -> ... seq half_d out_vec")
         reshape_Rx = rearrange(Rx, "... seq half_d out_vec -> ... seq (half_d out_vec)")
         # print(reshape_Rx.shape, x.shape)

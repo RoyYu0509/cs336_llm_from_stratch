@@ -246,7 +246,7 @@ def run_rope(
     return pos_encoder.forward(in_query_or_key, token_positions)
 
 
-from src.transformer.transformer import PreNormTransformer
+from src.transfromer.transformer import PreNormTransformer
 
 def run_transformer_block(
     d_model: int,
@@ -320,10 +320,10 @@ def run_transformer_block(
     """
     d_k = d_model//num_heads
     pos_encoder = PosEncod(theta, d_k, max_seq_len, device=in_features.device)
-
+    toekn_position = -torch.ones_like(in_features[:, :, 0], dtype=torch.long)
     tf_block = PreNormTransformer(d_model, num_heads,
                                   d_ff,
-                                  pos_encoder, -1,
+                                  pos_encod=pos_encoder, token_positions=toekn_position,
                                   device = in_features.device, dtype=in_features.dtype)
     tf_block.RMSN1.load_state_dict({"gain": weights["ln1.weight"]})
     tf_block.RMSN2.load_state_dict({"gain": weights["ln2.weight"]})
@@ -333,7 +333,7 @@ def run_transformer_block(
             "W_Q":weights["attn.q_proj.weight"],
             "W_K":weights["attn.k_proj.weight"],
             "W_V":weights["attn.v_proj.weight"],
-            "W_O":weights["attn.o_proj.weight"]
+            "W_O":weights["attn.output_proj.weight"]
         }
     )
 
@@ -344,7 +344,7 @@ def run_transformer_block(
             "W3": weights["ffn.w3.weight"],
         }
     )
-    return tf_block
+    return tf_block.forward(in_features)
 
 def run_transformer_lm(
     vocab_size: int,

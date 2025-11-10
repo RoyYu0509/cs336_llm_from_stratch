@@ -13,6 +13,8 @@ class MultiHeadsAttention(torch.nn.Module):
         Parameters:
             d_model:    int Dimensionality of input token vector.
             num_heads:  int Number of heads to use in multi-head self-attention.
+            pos_encod:  Encoder A Encoder object
+            token_positions: torch.Tensor A tensor specifying the position of the token vecor (... seq)
 
         Attributes:
             heads_num:  int Number of Attention Heads

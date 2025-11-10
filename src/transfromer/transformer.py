@@ -1,4 +1,4 @@
-impot jaxtyping
+import jaxtyping
 
 from src.transfromer.embedding import Embedding
 from src.transfromer.linear_module import Linear
@@ -79,8 +79,8 @@ class PreNormTransformer(nn.Module):
         Parameter:
             x: (batch, seq, d_model)
         """
-        x += self.MHA.forward(self.RMSN.forward(x))
-        x += self.FNN.forward(self.RMSN.forward(x))
+        x += self.MHA.forward(self.RMSN1.forward(x))
+        x += self.FNN.forward(self.RMSN2.forward(x))
         return x
 
         
