@@ -115,7 +115,7 @@ class MultiHeadsAttention(torch.nn.Module):
             - mask: Bool[Tensor, "... seq, seq"]
         """
         seq_len = x.shape[-2]
-        return ~torch.triu(torch.ones(seq_len, seq_len), diagonal=1).bool()  
+        return ~torch.triu(torch.ones(seq_len, seq_len), diagonal=1).bool().to(device=self.device)  
     
     def forward(self, x):
         """

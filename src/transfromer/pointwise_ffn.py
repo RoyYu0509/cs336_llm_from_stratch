@@ -13,22 +13,15 @@ class PointwiseSGLUactFFN(torch.nn.Module):
         self.W3: Float[torch.Tensor, "dim_ff, d_model"]= torch.nn.Parameter(trunct_normal_para_init(dim_ff, dim_model, device=device, dtype=dtype))
         self.W2: Float[torch.Tensor, "d_model, dim_ff"]= torch.nn.Parameter(trunct_normal_para_init(dim_model, dim_ff, device=device, dtype=dtype))
 
-    def _SiLU(self, x: float):
-        """
-        A element-wise silu activation function
-        
-        Parameter:
-            x: A scalar float value.
-        """
-        return x/(1+torch.exp(-x))
-    
     def SiLU(self, x: torch.Tensor):
-        """SiLU Activation Function
+        """
+        SiLU Activation Function:  x/(1+torch.exp(-x))
         
         Parameter:
-            x: A vector of dimension d_model
+            x: A vector of (batch, seq, d_model)
         """
-        return torch.vmap(self._SiLU, in_dims=0)(x)
+        
+        return x * torch.sigmoid(x)
     
     def forward(self, x: torch.Tensor):
         """

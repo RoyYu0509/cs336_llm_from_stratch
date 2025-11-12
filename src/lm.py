@@ -34,7 +34,8 @@ class TransformerLM(nn.Module):
             num_layers:     int | The number of Transformer blocks to use.
 
         
-        
+        Component:
+            
         """
         super().__init__()
         self.vocab_size = vocab_size
@@ -47,7 +48,10 @@ class TransformerLM(nn.Module):
         # Positional Encoder
         if pos_encod is None:
             pos_encoder = PosEncod(theta, d_model//heads_num, context_length, device=device)
-        self.token_positions = torch.arange(0, context_length)
+        
+        # Defining token position with maximum length 
+        token_positions = torch.arange(0, context_length)
+        self.register_buffer("token_positions", token_positions)
         
         # Transformer Blocks
         self.tf_layers = nn.ModuleList([
@@ -72,14 +76,14 @@ class TransformerLM(nn.Module):
         Input: 
             - x: A batched sequence of integer token IDs, (batch_size, sequence_length)
 
-        Return a (batched) normalized probability distribution over the vocabulary
+        Return a raw logits distribution over the vocabulary
         with shape (batch_size, sequence_length, vocab_size).
         """
-        # (batch_size, sequence_length) . (vocab_size, embedding_dim) 
+        # MatMul: (batch_size, sequence_length) . (vocab_size, embedding_dim) 
         x = self.in_embedding.forward(x)
         
         for tf_block in self.tf_layers:
-
+            # 
             x = tf_block.forward(x)
 
         x = self.norm.forward(x)

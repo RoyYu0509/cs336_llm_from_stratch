@@ -7,7 +7,7 @@ import random
 def train_tokenizer(input_path, vocab_size, special_tokens,
               num_processes = 3, split_special_token = b"<|endoftext|>"
             ):
-    bpe_tk = Tokenizer(vocab_size, special_tokens)
+    bpe_tk = Tokenizer(vocab_size=vocab_size, special_tokens=special_tokens)
     vocab, merges = bpe_tk.train(input_path, vocab_size,
                                  num_processes, split_special_token)
     return vocab, merges

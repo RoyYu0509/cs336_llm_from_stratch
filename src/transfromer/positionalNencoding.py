@@ -2,6 +2,7 @@ import torch
 from jaxtyping import Float, Array
 from torch import Tensor
 from einops import rearrange, reduce, repeat, einsum
+import torch.nn as nn
 
 
 class RoPE:
@@ -37,7 +38,7 @@ class RoPE:
         return rotMat_ik
 
 
-class PosEncod:
+class PosEncod(nn.Moudle):
     def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None):
         """
         Construct the RoPE module and create buffers if needed.
@@ -52,12 +53,10 @@ class PosEncod:
         self.device = device
 
         # Buffer the rotation matrix for reuse
-        self.Rs:Float[Tensor, "max_seq_l, half_d, 2out_vec, 2in_vec"]
         if d_k % 2 != 0:
             d = d_k+1   # Pad for odd d_k
-        else:
-            d = d_k
-        self.Rs = torch.stack(
+        Rs:Float[Tensor, "max_seq_l, half_d, 2out_vec, 2in_vec"]
+        Rs = torch.stack(
             [
                 torch.stack(
                     [
@@ -68,6 +67,7 @@ class PosEncod:
             ], 
             dim = 0
         )
+        self.register_buffer("Rs", Rs) # Register as a buffer, so that it will move together with the Module
     
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
         """
@@ -78,7 +78,6 @@ class PosEncod:
             - x: the input batch data
             - token_positions: (..., seq_len) specifying the token positions of x along the sequence dimension.
         """
-        token_positions:Float[Tensor, "seq"]
         x, token_positions = x.to(self.device), token_positions.to(self.device)
         # Pad a dummy dimension if the d_k is odd
         d = self.d_k
@@ -87,11 +86,13 @@ class PosEncod:
             x = torch.cat([x, torch.zeros(*x.shape[:-1], 1, device=self.device, dtype=x.dtype)], dim=-1)
             d += 1
         
+        token_positions:Float[Tensor, "... seq"]
+        position = token_positions[..., :x.shape[-2]] # Select the same len as the input sequence.
+
         # Get the Rotation Matrix
         Rs: Float[Tensor, f"seq, half_d, in_vec, out_vec"]
-        position = token_positions[:x.shape[-2]] # Select the same len as the input sequence.
         Rs = self.Rs[position].to(x.dtype) # Retrieve only the relavent position
-        
+            
         # Unpack x into several 2-dim vec
         reshape_x = rearrange(x, "... seq (half_d in_vec) -> ... seq half_d in_vec", half_d = d//2, in_vec = 2)
         # print(f"Shape of Rs: {Rs.shape}")
