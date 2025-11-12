@@ -60,9 +60,9 @@ class BBPE(AbstractPreTokenizer):
         )
 
         # Define safe parition skipping all special_tokens
-        self.SPLIT = b"|".join(
+        self.SPLIT = b"(" + b"|".join(
             re.escape(spt.encode("utf-8")) for spt in (self.special_tokens or [])
-        )  
+        ) + b")"
 
         # Define Speical Tokens Split
         self.SPECIAL_RE = re.compile(
@@ -96,11 +96,11 @@ class BBPE(AbstractPreTokenizer):
             num_processes = desired_num_chunks
             boundaries = find_chunk_boundaries(f, num_processes, split_special_token)
 
-        # eg. zip([0, 100, 200, 300], [100, 200, 300, 400]) produces (0, 100), (100, 200), (200, 300), (300, 400)
+        # Parallelizing 
         with ProcessPoolExecutor(max_workers=num_processes) as executor:
-            boundaries = list(zip(boundaries[:-1], boundaries[1:]))
+            boundaries = list(zip(boundaries[:-1], boundaries[1:])) # eg. zip([0, 100, 200, 300], [100, 200, 300, 400]) produces (0, 100), (100, 200), (200, 300), (300, 400)
             chunk_pretks = [
-                executor.submit(process_chunk, boundary, file_path, self.SPLIT,self.PAT) 
+                executor.submit(process_chunk, boundary, file_path, self.SPLIT, self.PAT) 
                 for boundary in boundaries
             ]
         

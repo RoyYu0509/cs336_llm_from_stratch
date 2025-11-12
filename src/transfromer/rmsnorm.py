@@ -29,6 +29,12 @@ class Rmsnorm(torch.nn.Module):
         Process an input tensor of shape (batch_size, sequence_length, d_model)
         
         Return a tensor of the same shape.
+
+        FLOPs:
+            - Square: (batch_size * sequence_length * d_model)
+            - Mean: (batch_size * sequence_length) * (d_model+1)
+            - Add eps: (batch_size * sequence_length * d_model) 
+            - Compute rms_x
         """
         # Up-scale percision
         x_dtype = x.dtype
