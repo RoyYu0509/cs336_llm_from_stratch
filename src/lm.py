@@ -32,6 +32,9 @@ class TransformerLM(nn.Module):
                             the dimensionality of the position embedding matrix.
 
             num_layers:     int | The number of Transformer blocks to use.
+
+        
+        
         """
         super().__init__()
         self.vocab_size = vocab_size
@@ -72,9 +75,11 @@ class TransformerLM(nn.Module):
         Return a (batched) normalized probability distribution over the vocabulary
         with shape (batch_size, sequence_length, vocab_size).
         """
+        # (batch_size, sequence_length) . (vocab_size, embedding_dim) 
         x = self.in_embedding.forward(x)
-
+        
         for tf_block in self.tf_layers:
+
             x = tf_block.forward(x)
 
         x = self.norm.forward(x)

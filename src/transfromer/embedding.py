@@ -28,7 +28,11 @@ class Embedding(torch.nn.Module):
         self.dtype = dtype
 
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
-        """Lookup the embedding vectors for the given token IDs."""
+        """
+        Return the embedding vectors of the given token IDs.
+
+        Loop up in the Word Embedding Matrix
+        """
         # Simple row retrieving
         return self.embed_mat[token_ids]
 
