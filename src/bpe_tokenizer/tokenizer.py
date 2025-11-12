@@ -37,27 +37,25 @@ class Tokenizer(BBPE):
 
     @classmethod
     def from_files(cls, vocab_filepath, merges_filepath, special_tokens=None):
-        """
-        Class method that constructs and return a Tokenizer from a serialized 
-        vocabulary and list of merges (in the same format that your BPE training 
-        code output) and (optionally) a list of special tokens.
-        
-        Paramters:
-            vocab_filepath: str
-            merges_filepath: str
-            special_tokens: list[str] | None = None
-        """
-        # Read-In vocabulary
-        with open(vocab_filepath, "r") as f:
-            vocab = dict(json.load(f))
+        with open(vocab_filepath, "r", encoding="utf-8") as f:
+            vocab_json = json.load(f)
+        vocab = {int(k): bytes(v) if isinstance(v, list) else v.encode("latin-1")
+                for k, v in vocab_json.items()}
 
-        # Read-In merge list
-        with open(merges_filepath, "r") as f:
-            merges = list(f.read())
+        merges = []
+        with open(merges_filepath, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                left_str, right_str = line.split()
+                left = left_str.encode("latin-1")
+                right = right_str.encode("latin-1")
+                merges.append((left, right))
 
-        # Return a class object
-        return cls(vocab, merges, special_tokens)
-            
+        return cls(vocab=vocab, merges=merges, special_tokens=special_tokens)
+
+                
 
     def encode(self, text: str) -> list[int]:
         """Encode an input text into a sequence of token IDs."""
