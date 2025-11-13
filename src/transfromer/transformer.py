@@ -72,7 +72,7 @@ class PreNormTransformer(nn.Module):
         self.FNN = PointwiseSGLUactFFN(d_model, dim_ff, latent_exp_factor, device, dtype)
 
 
-    def forward(self,x:torch.Tensor):
+    def forward(self,x:torch.Tensor, token_positions=None):
         """
         Return the output from a transformer block.
         (batch, seq, d_model) -> (batch, seq, d_model)
@@ -80,7 +80,7 @@ class PreNormTransformer(nn.Module):
         Parameter:
             x: (batch, seq, d_model)
         """
-        x += self.MHA.forward(self.RMSN1.forward(x))
+        x += self.MHA.forward(self.RMSN1.forward(x), token_positions=token_positions)
         x += self.FNN.forward(self.RMSN2.forward(x))
         return x
 

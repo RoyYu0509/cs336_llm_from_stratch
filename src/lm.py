@@ -16,7 +16,7 @@ class TransformerLM(nn.Module):
                  d_model: int, heads_num: int, # Multi-Head Attention args
                  d_ff: int, # FNN args
                  theta: float, # Encoder para
-                 pos_encod=None, # Multi-Head Attention kwargs
+                 pos_encoder=None, # Multi-Head Attention kwargs
                  eps: float = 1e-5, # rmsnorm kwargs
                  latent_exp_factor = 8/3, # FNN kwargs
                  device=None, dtype=torch.float32,  # general kwargs
@@ -46,8 +46,7 @@ class TransformerLM(nn.Module):
                                    device=device, dtype=dtype)
 
         # Positional Encoder
-        if pos_encod is None:
-            pos_encoder = PosEncod(theta, d_model//heads_num, context_length, device=device)
+        self.pos_encoder = pos_encoder if pos_encoder is not None else PosEncod(theta, d_model//heads_num, context_length, device=device)
         
         # Defining token position with maximum length 
         token_positions = torch.arange(0, context_length)
@@ -58,7 +57,7 @@ class TransformerLM(nn.Module):
             PreNormTransformer(
                 d_model, heads_num,
                 d_ff,
-                pos_encod=pos_encoder, token_positions=self.token_positions,
+                pos_encod=self.pos_encoder, token_positions=None,
                 latent_exp_factor=latent_exp_factor,
                 device = device, dtype=dtype
             ) for _ in range(num_layers)
@@ -82,9 +81,11 @@ class TransformerLM(nn.Module):
         # MatMul: (batch_size, sequence_length) . (vocab_size, embedding_dim) 
         x = self.in_embedding.forward(x)
         
+        batch_size, seq_len = x.shape[0], x.shape[1]
+        positions = self.token_positions[:seq_len].unsqueeze(0).expand(batch_size, -1)
+        positions = positions.to(x.device)
         for tf_block in self.tf_layers:
-            # 
-            x = tf_block.forward(x)
+            x = tf_block.forward(x, token_positions=positions)
 
         x = self.norm.forward(x)
 

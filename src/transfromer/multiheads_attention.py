@@ -69,9 +69,9 @@ class MultiHeadsAttention(torch.nn.Module):
 
         # Add Positional Encoding
         self.pos_encod = pos_encod 
-        self.token_positions = token_positions
+        self.token_positions = token_positions  # optional fallback
 
-    def _multiHead(self, x):
+    def _multiHead(self, x, token_positions=None):
         """
         Return the result of MultiHead(W_Q, W_K, W_V, x) 
 
@@ -93,9 +93,10 @@ class MultiHeadsAttention(torch.nn.Module):
         V = einsum(W_V, x, "h d_v d_model, ... seq d_model -> ... h seq d_v")
 
         # Add position encoding
-        if self.pos_encod is not None and self.token_positions is not None:
-            Q = self.pos_encod.forward(Q, self.token_positions)
-            K = self.pos_encod.forward(K, self.token_positions)
+        positions = token_positions if token_positions is not None else self.token_positions
+        if self.pos_encod is not None and positions is not None:
+            Q = self.pos_encod.forward(Q, positions)
+            K = self.pos_encod.forward(K, positions)
 
         bool_mask = self._build_mask(x)
 
@@ -115,17 +116,16 @@ class MultiHeadsAttention(torch.nn.Module):
             - mask: Bool[Tensor, "... seq, seq"]
         """
         seq_len = x.shape[-2]
-        return ~torch.triu(torch.ones(seq_len, seq_len), diagonal=1).bool().to(device=self.device)  
+        return ~torch.triu(torch.ones(seq_len, seq_len), diagonal=1).bool().to(device=x.device)  
     
-    def forward(self, x):
+    def forward(self, x, token_positions=None):
         """
         Return tensor: W_O @ MultiHead(W_Q, W_K, W_V, x) 
         """
         multi_head_attention: Float[Tensor, "... h seq_q d_v"]
-        multi_head_attention = self._multiHead(x)
+        multi_head_attention = self._multiHead(x, token_positions)
 
         multi_head_attention = rearrange(multi_head_attention, "... h seq d_v -> ... seq (h d_v)")
         self.W_O: Float[Tensor, "d_model (h_d_v)"]
         out = einsum(self.W_O, multi_head_attention, "d_model (h_d_v), ... seq (h_d_v) -> ... seq d_model")
         return out
-

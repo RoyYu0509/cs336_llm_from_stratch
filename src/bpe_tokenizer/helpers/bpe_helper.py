@@ -76,7 +76,7 @@ def intialize_b2id_dict(special_tokens):
     return byte_2_id
 
 # Parallelize the processing
-def process_chunk(start_end:tuple[int, int], file_path, split, pat):
+def process_chunk(start_end:tuple[int, int], file_path, split, pat, special_tokens_bytes):
     """
     Process the text bytes file in the chunk [start:end]
 
@@ -93,11 +93,17 @@ def process_chunk(start_end:tuple[int, int], file_path, split, pat):
         chunk = f.read(end - start)
 
         # Pre-split based on a list of special tokens
-        safe_chunks = re.split(split, chunk) # Prevent split on the middle of the special tokens
+        if split is not None:
+            safe_chunks = split.split(chunk)  # Prevent split on the middle of the special tokens
+        else:
+            safe_chunks = [chunk]
 
         for safe_chunk in safe_chunks:
             # Skip the empty chunk produced by `safe_chunks`-splitting (Side Effect)
             if not safe_chunk:  # skip empty
+                continue
+            if special_tokens_bytes and safe_chunk in special_tokens_bytes:
+                counter[(safe_chunk,)] += 1
                 continue
 
             # Apply string splitting and get an sting Iterable

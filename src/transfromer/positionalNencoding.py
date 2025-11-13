@@ -38,7 +38,7 @@ class RoPE:
         return rotMat_ik
 
 
-class PosEncod(nn.Moudle):
+class PosEncod(nn.Module):
     def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None):
         """
         Construct the RoPE module and create buffers if needed.
@@ -48,26 +48,25 @@ class PosEncod(nn.Moudle):
             - d_k: int          Dimension of the token vectors.
             - max_seq_len: int  Maximum sequence length of our input tokens.
         """
-        self.theta = theta
+        super().__init__()
         self.d_k = d_k
-        self.device = device
+        self.rot_dim = d_k if d_k % 2 == 0 else d_k + 1
 
         # Buffer the rotation matrix for reuse
-        if d_k % 2 != 0:
-            d = d_k+1   # Pad for odd d_k
-        Rs:Float[Tensor, "max_seq_l, half_d, 2out_vec, 2in_vec"]
-        Rs = torch.stack(
+        rotations: Float[Tensor, "max_seq_l half_d out_vec in_vec"]
+        rotations = torch.stack(
             [
                 torch.stack(
                     [
-                        RoPE(theta, d_k).getRotMat(pos, k) for k in range(0, d//2)
+                        RoPE(theta, self.rot_dim).getRotMat(pos, k) for k in range(0, self.rot_dim // 2)
                     ],
-                    dim=0
-                ) for pos in range(max_seq_len)
-            ], 
-            dim = 0
+                    dim=0,
+                )
+                for pos in range(max_seq_len)
+            ],
+            dim=0,
         )
-        self.register_buffer("Rs", Rs) # Register as a buffer, so that it will move together with the Module
+        self.register_buffer("Rs", rotations.to(device=device), persistent=False)
     
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
         """
@@ -78,20 +77,22 @@ class PosEncod(nn.Moudle):
             - x: the input batch data
             - token_positions: (..., seq_len) specifying the token positions of x along the sequence dimension.
         """
-        x, token_positions = x.to(self.device), token_positions.to(self.device)
+        device = x.device
+        token_positions = token_positions.to(device)
         # Pad a dummy dimension if the d_k is odd
-        d = self.d_k
-        is_odd_d = (d % 2 == 1)
+        d = self.rot_dim
+        is_odd_d = (self.d_k % 2 == 1)
         if is_odd_d:
-            x = torch.cat([x, torch.zeros(*x.shape[:-1], 1, device=self.device, dtype=x.dtype)], dim=-1)
-            d += 1
-        
-        token_positions:Float[Tensor, "... seq"]
-        position = token_positions[..., :x.shape[-2]] # Select the same len as the input sequence.
+            pad = torch.zeros(*x.shape[:-1], 1, device=device, dtype=x.dtype)
+            x = torch.cat([x, pad], dim=-1)
+        seq_len = x.shape[-2]
+        position = token_positions[..., :seq_len]
 
         # Get the Rotation Matrix
-        Rs: Float[Tensor, f"seq, half_d, in_vec, out_vec"]
-        Rs = self.Rs[position].to(x.dtype) # Retrieve only the relavent position
+        rope_cache = self.Rs
+        if rope_cache.device != device:
+            rope_cache = rope_cache.to(device)
+        Rs = rope_cache[position].to(x.dtype)
             
         # Unpack x into several 2-dim vec
         reshape_x = rearrange(x, "... seq (half_d in_vec) -> ... seq half_d in_vec", half_d = d//2, in_vec = 2)

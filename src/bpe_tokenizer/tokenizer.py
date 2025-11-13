@@ -14,9 +14,11 @@ class Tokenizer(BBPE):
             vocab:  int | dict[int, bytes]
             merges: list[tuple[bytes, bytes]]
             special_tokens: list[str] | None = None
+
+        For Special Tokens we keep it as one token: counter[(b"<|endoftext|>",)] = <count>
         """
         if isinstance(vocab, dict):
-            print("Load in tokenizer...")
+            # print("Load in tokenizer...")
             super().__init__(max_vocab_size=len(vocab.keys()), special_tokens=special_tokens)
             # Overwrite a trained tokenizer
             if vocab is not None:
@@ -27,7 +29,7 @@ class Tokenizer(BBPE):
                 self.merge_sequence = merges
 
         elif isinstance(vocab, int):
-            print("Initiate raw tokenizer...")
+            # print("Initiate raw tokenizer...")
             # Initiate untrained tokenizer
             super().__init__(max_vocab_size=vocab, special_tokens=special_tokens)
         else:

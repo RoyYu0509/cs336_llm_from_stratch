@@ -59,12 +59,16 @@ class BBPE(AbstractPreTokenizer):
             r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
         )
 
-        # Define safe parition skipping all special_tokens
-        self.SPLIT = b"(" + b"|".join(
-            re.escape(spt.encode("utf-8")) for spt in (self.special_tokens or [])
-        ) + b")"
+        # Define safe partition skipping all special_tokens
+        if self.special_tokens:
+            split_pattern = b"(" + b"|".join(
+                re.escape(spt.encode("utf-8")) for spt in self.special_tokens
+            ) + b")"
+            self.SPLIT = re.compile(split_pattern)
+        else:
+            self.SPLIT = None
 
-        # Define Speical Tokens Split
+        # Define Speical Tokens Split: [non-special, special, non-special, ..., non-special, special]
         self.SPECIAL_RE = re.compile(
             f"({"|".join(sorted(map(re.escape, self.special_tokens), key=len, reverse=True))})"
         ) if self.special_tokens else re.compile("$^")
@@ -81,13 +85,14 @@ class BBPE(AbstractPreTokenizer):
         """
         Return a pretokenization dict counts the pretoken appearance: 
             {
-            (byte1, byte2, ...): appearance, 
-            (): appearance, 
+            counter[(byte1, byte2, ...)]: <count>, 
+            counter[(b"...")]: <count>, 
             ...
             }
         Each Pretoken is stored in tuple of single bytes representation (byte1, byte2, ...).
-
         Read the file_path in several splits, splited based on the split_special_token.
+
+        NOTE: For the Special Tokens we keep it as one token: counter[(b"<|endoftext|>",)] = <count>
             
         Precondition: The bytes in the text must in the default_vocab
         """
@@ -100,7 +105,7 @@ class BBPE(AbstractPreTokenizer):
         with ProcessPoolExecutor(max_workers=num_processes) as executor:
             boundaries = list(zip(boundaries[:-1], boundaries[1:])) # eg. zip([0, 100, 200, 300], [100, 200, 300, 400]) produces (0, 100), (100, 200), (200, 300), (300, 400)
             chunk_pretks = [
-                executor.submit(process_chunk, boundary, file_path, self.SPLIT, self.PAT) 
+                executor.submit(process_chunk, boundary, file_path, self.SPLIT, self.PAT, self.special_tokens_bytes) 
                 for boundary in boundaries
             ]
         

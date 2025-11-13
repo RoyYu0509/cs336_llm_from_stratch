@@ -7,30 +7,30 @@ import random
 def train_tokenizer(input_path, vocab_size, special_tokens,
               num_processes = 3, split_special_token = b"<|endoftext|>"
             ):
-    bpe_tk = Tokenizer(vocab_size=vocab_size, special_tokens=special_tokens)
+    bpe_tk = Tokenizer(vocab=vocab_size, special_tokens=special_tokens)
     vocab, merges = bpe_tk.train(input_path, vocab_size,
                                  num_processes, split_special_token)
     return vocab, merges
 
 
-def train_encoder():
-    ECHO = True
-    special_tokens = ['<|endoftext|>', ]
-    max_vocab_size = 10000
-    fp = "/Users/yifanyu/Desktop/CS336 LLM/CS336 A1/data/TinyStoriesV2-GPT4-train.txt"
-    num_processes = 10
-    sp_tok = "<|endoftext|>".encode("utf-8")
+# def train_encoder():
+#     ECHO = True
+#     special_tokens = ['<|endoftext|>', ]
+#     max_vocab_size = 10000
+#     fp = "/Users/yifanyu/Desktop/CS336 LLM/CS336 A1/data/TinyStoriesV2-GPT4-train.txt"
+#     num_processes = 10
+#     sp_tok = "<|endoftext|>".encode("utf-8")
 
-    bpe_tk = Tokenizer(vocab=max_vocab_size, merges=None, special_tokens=special_tokens)
-    vocab_id2b_dict, merges_seq = bpe_tk.train(fp, max_vocab_size,
-                                 num_processes, sp_tok)
+#     bpe_tk = Tokenizer(vocab=max_vocab_size, merges=None, special_tokens=special_tokens)
+#     vocab_id2b_dict, merges_seq = bpe_tk.train(fp, max_vocab_size,
+#                                  num_processes, sp_tok)
 
-    # Save vocab and merges
-    with open("vocab_id2b_dict.pkl", "wb") as f:
-        pickle.dump(vocab_id2b_dict, f)
+#     # Save vocab and merges
+#     with open("vocab_id2b_dict.pkl", "wb") as f:
+#         pickle.dump(vocab_id2b_dict, f)
 
-    with open("merges_seq.pkl", "wb") as f:
-        pickle.dump(merges_seq, f)
+#     with open("merges_seq.pkl", "wb") as f:
+#         pickle.dump(merges_seq, f)
 
 
 def small_vocab_size_encode_decode_sample():
