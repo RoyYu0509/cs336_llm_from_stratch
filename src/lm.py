@@ -59,14 +59,16 @@ class TransformerLM(nn.Module):
             
             4. Normalization
             5. Output Embedding(Logits)
-
         
-        Computational Costs:
+        Notes: Remeber in the Multi-Head Attention Block, d*H means the embedding vec dimension D.
+        
+        Computational Costs: 
+        ----------------------------------------------------------------------------------------
             1. Token Embedding: 
                 Token ID = i used to retrieved the vector Embedd_Mat[i] of size D.
                 Retrieve using one-hot vector MatMul ≈ B * T * (2VD) FLOPs.
 
-            2. RoPE:
+            2. RoPE Embedding:
                 For each embedded vector, we need to apply a 2by2 rotation matrix on
                 all of its components. One 2by2 MatVec Mul costs ≈ 4 + 2 FLOPs
                 Each Pos Encode would costs ≈ B * T * H * (d) * (6)
@@ -83,8 +85,8 @@ class TransformerLM(nn.Module):
                         Each projection costs ≈ B * T * H * (2(d)*D) = 2*B*T*D^2
                         In total 3 projection operation ≈ 6*B*T*D^2
 
-                    2). Pos Encode QK: 
-                        Encode QK, each costs ≈ B * T * H * (d) * (6)
+                    2). RoPE Embedding QK: 
+                        Pos Encode QK, each costs ≈ B * T * H * (d) * (6)
                         In total ≈ 2 * (B * T * H * (d) * (6))
 
                     3). Scaled Attention:
@@ -95,11 +97,11 @@ class TransformerLM(nn.Module):
                         In total ≈ B*H*[(2*T*d*T+1)+T+(2*T*T*d)] ≈ B*H*4*T*T*d + B*H + B*H*T
                     
                     4). Out Projection
-                        Each Head costs ≈ 2*B*T*d*D
-                        In total ≈ H*(2*B*T*d*D)
+                        We concatenated each heads's output, downstream vec size = H*d = D
+                        In total ≈ 2*B*T*D*D
                 
                 iii. Residue Adds:
-                    Element-wise addition, costs ≈ B*T*T
+                    Element-wise addition, costs ≈ B*T*D
 
                 iv. RMSNorm: ≈ 2*B*T*D + B*T*D + B*T
                 
@@ -112,7 +114,7 @@ class TransformerLM(nn.Module):
                         W2x costs: 2*d_ff*D
                     In total: B*T*(6*d_ff*D + 3*d_ff)
                 
-                vi. Residue Adds: ≈ B*T*T
+                vi. Residue Adds: ≈ B*T*D
             
             4. RMSNorm:
                 Apply RMSNorm on the downstream activation vector, costs ≈ 2*B*T*D + B*T*D + B*T
