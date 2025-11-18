@@ -161,8 +161,9 @@ class TransformerLM(nn.Module):
         Input: 
             - x: A batched sequence of integer token IDs, (batch_size, sequence_length)
 
-        Return a raw logits distribution over the vocabulary
-        with shape (batch_size, sequence_length, vocab_size).
+        Output:
+            - A Tensor of (batch_size, sequence_length, vocab_size) a raw logits distribution over 
+            the vocabulary.
         """
         # MatMul: (batch_size, sequence_length) . (vocab_size, embedding_dim) 
         x = self.in_embedding.forward(x)
