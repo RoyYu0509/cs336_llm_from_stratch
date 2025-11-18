@@ -11,6 +11,113 @@ import torch
 
 
 class TransformerLM(nn.Module):
+    """
+    Transformer language model for masked next-token prediction. It works like: 
+        - Giving a token sequence sentence: [ID1, ID2, ID3, ...]
+        - Embedded into vectors
+        - For each position i:
+            - Gives all token until i.
+            - Predict the distribution of vocabulary logits of the next i+1 token.
+            - 
+
+    Inputs:
+        - sentence: Tensor[Int] with shape (B, T) 
+            Input is the batched sentences, each sentence sequence is represented 
+            by tokenized ID.
+
+    Outputs:
+        - word_logits: Tensor[Float] with shape (B, T, V). 
+            For each position t in a sequence, the output logits[:, t, :] contains the 
+            unnormalized vocabulary scores for predicting the next token given all tokens
+            until t.
+        
+    Notation:
+        B: Batch Szie
+        T: Sequence Length
+        D: The Embedding(input) vector dimension
+        V: The Vocabulary Size
+        L: Numbers of Layers
+        H: Number of Heads
+        d: Dimension of Key and Query vector per Head ≈ D/H
+        d_ff: Dimension of the hidden layers in the SwiGLU FNN
+
+    Component:
+        1. Token Embedding
+        2. RoPE Pos Encoding
+        
+        3. Transformer Blocks:
+            a. RMSNorms
+            b. Multi-Head Attention Projection
+            c. Residual Addition
+            ---------------------------------
+            d. RMSNorms
+            e. Point-Wise FNN
+            f. Residual Addition
+        
+        4. Normalization
+        5. Output Embedding(Logits)
+
+    
+    Computational Costs:
+        1. Token Embedding: 
+            Token ID = i used to retrieved the vector Embedd_Mat[i] of size D.
+            Retrieve using one-hot vector MatMul ≈ B * T * (2VD) FLOPs.
+
+        2. RoPE:
+            For each embedded vector, we need to apply a 2by2 rotation matrix on
+            all of its components. One 2by2 MatVec Mul costs ≈ 4 + 2 FLOPs
+            Each Pos Encode would costs ≈ B * T * H * (d) * (6)
+
+        3. Transformer Block:
+            i. RMSNorm:
+                For each activation vector, RMS compt costs ≈ 2*D + 1 (Add, Mul, Sqrt)
+                Normalization costs: ≈ D
+                In total ≈ B*T*(D + 2*D + 1) = 2*B*T*D + B*T*D + B*T
+
+            ii. Attention Block:
+                1). QKV Projection: 
+                    Compute each projection using W@x.
+                    Each projection costs ≈ B * T * H * (2(d)*D) = 2*B*T*D^2
+                    In total 3 projection operation ≈ 6*B*T*D^2
+
+                2). Pos Encode QK: 
+                    Encode QK, each costs ≈ B * T * H * (d) * (6)
+                    In total ≈ 2 * (B * T * H * (d) * (6))
+
+                3). Scaled Attention:
+                    For each head one sequence, we compute: 
+                    - Scaled MatMul QK/sqrt(d) ≈ 2*T*d*T + 1 FLOPs
+                    - SoftMax Transforming for one sequence: O(T)
+                    - Retrieve from V with the Attention: 2 * T * T * d
+                    In total ≈ B*H*[(2*T*d*T+1)+T+(2*T*T*d)] ≈ B*H*4*T*T*d + B*H + B*H*T
+                
+                4). Out Projection
+                    Each Head costs ≈ 2*B*T*d*D
+                    In total ≈ H*(2*B*T*d*D)
+            
+            iii. Residue Adds:
+                Element-wise addition, costs ≈ B*T*T
+
+            iv. RMSNorm: ≈ 2*B*T*D + B*T*D + B*T
+            
+            v. PointWise FNN (SwiGLU):
+                For each activation vector:
+                    W1x costs: 2*d_ff*D
+                    SiLU Act costs: 2*d_ff
+                    Gating costs: d_ff
+                    W3x costs: 2*d_ff*D
+                    W2x costs: 2*d_ff*D
+                In total: B*T*(6*d_ff*D + 3*d_ff)
+            
+            vi. Residue Adds: ≈ B*T*T
+        
+        4. RMSNorm:
+            Apply RMSNorm on the downstream activation vector, costs ≈ 2*B*T*D + B*T*D + B*T
+        
+        5. Output Embedding:
+            Return the raw logits for all V vocabulary, each downstream vec costs ≈ 2*V*D*1
+            In total: ≈ B*T*(2*V*D)
+    """
     def __init__(self, 
                  vocab_size: int, context_length: int, num_layers: int, # LM args
                  d_model: int, heads_num: int, # Multi-Head Attention args
@@ -32,94 +139,6 @@ class TransformerLM(nn.Module):
                             the dimensionality of the position embedding matrix.
 
             num_layers:     int | The number of Transformer blocks to use.
-
-        
-        Notation:
-            B: Batch Szie
-            T: Sequence Length
-            D: The Embedding(input) vector dimension
-            V: The Vocabulary Size
-            L: Numbers of Layers
-            H: Number of Heads
-            d: Dimension of Key and Query vector per Head ≈ D/H
-            d_ff: Dimension of the hidden layers in the SwiGLU FNN
-
-        Component:
-            1. Token Embedding
-            2. RoPE Pos Encoding
-            
-            3. Transformer Blocks:
-                - RMSNorms
-                - Multi-Head Attention Projection
-                - Residual Addition
-                ---------------------------------
-                - RMSNorms
-                - Point-Wise FNN
-                - Residual Addition
-            
-            4. Normalization
-            5. Output Embedding(Logits)
-
-        
-        Computational Costs:
-            1. Token Embedding: 
-                Token ID = i used to retrieved the vector Embedd_Mat[i] of size D.
-                Retrieve using one-hot vector MatMul ≈ B * T * (2VD) FLOPs.
-
-            2. RoPE:
-                For each embedded vector, we need to apply a 2by2 rotation matrix on
-                all of its components. One 2by2 MatVec Mul costs ≈ 4 + 2 FLOPs
-                Each Pos Encode would costs ≈ B * T * H * (d) * (6)
-
-            3. Transformer Block:
-                i. RMSNorm:
-                    For each activation vector, RMS compt costs ≈ 2*D + 1 (Add, Mul, Sqrt)
-                    Normalization costs: ≈ D
-                    In total ≈ B*T*(D + 2*D + 1) = 2*B*T*D + B*T*D + B*T
-
-                ii. Attention Block:
-                    1). QKV Projection: 
-                        Compute each projection using W@x.
-                        Each projection costs ≈ B * T * H * (2(d)*D) = 2*B*T*D^2
-                        In total 3 projection operation ≈ 6*B*T*D^2
-
-                    2). Pos Encode QK: 
-                        Encode QK, each costs ≈ B * T * H * (d) * (6)
-                        In total ≈ 2 * (B * T * H * (d) * (6))
-
-                    3). Scaled Attention:
-                        For each head one sequence, we compute: 
-                        - Scaled MatMul QK/sqrt(d) ≈ 2*T*d*T + 1 FLOPs
-                        - SoftMax Transforming for one sequence: O(T)
-                        - Retrieve from V with the Attention: 2 * T * T * d
-                        In total ≈ B*H*[(2*T*d*T+1)+T+(2*T*T*d)] ≈ B*H*4*T*T*d + B*H + B*H*T
-                    
-                    4). Out Projection
-                        Each Head costs ≈ 2*B*T*d*D
-                        In total ≈ H*(2*B*T*d*D)
-                
-                iii. Residue Adds:
-                    Element-wise addition, costs ≈ B*T*T
-
-                iv. RMSNorm: ≈ 2*B*T*D + B*T*D + B*T
-                
-                v. PointWise FNN (SwiGLU):
-                    For each activation vector:
-                        W1x costs: 2*d_ff*D
-                        SiLU Act costs: 2*d_ff
-                        Gating costs: d_ff
-                        W3x costs: 2*d_ff*D
-                        W2x costs: 2*d_ff*D
-                    In total: B*T*(6*d_ff*D + 3*d_ff)
-                
-                vi. Residue Adds: ≈ B*T*T
-            
-            4. RMSNorm:
-                Apply RMSNorm on the downstream activation vector, costs ≈ 2*B*T*D + B*T*D + B*T
-            
-            5. Output Embedding:
-                Return the raw logits for all V vocabulary, each downstream vec costs ≈ 2*V*D*1
-                In total: ≈ B*T*(2*V*D)
         """
         super().__init__()
         self.vocab_size = vocab_size
