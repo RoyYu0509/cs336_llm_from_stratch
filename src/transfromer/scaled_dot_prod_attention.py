@@ -3,7 +3,7 @@ from jaxtyping import Float, Array
 from torch import Tensor
 from einops import rearrange, reduce, repeat, einsum
 
-def softmax(input: torch.Tensor, axis: int):
+def softmax(input: torch.Tensor, axis: int = -1):
     """
     Compute softmax along a specified axis, with numerical stability.
 
