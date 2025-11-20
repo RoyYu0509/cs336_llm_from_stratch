@@ -1,17 +1,22 @@
 import argparse
 import wandb
 import os
+import torch
+DTYPE_DICT={
+    "float32": torch.float32,
+    "float16": torch.float16
+}
 
 parser = argparse.ArgumentParser(description="Training LLM")
 
 # Logging
-parser.add_argument("-WANDB_PROJECT", type=str, default=None, help="Weights & Biases project (optional).")
-parser.add_argument("-WANDB_RUN_NAME", type=str, default=None, help="Weights & Biases run name.")
+parser.add_argument("--WANDB_PROJECT", type=str, default=None, help="Weights & Biases project (optional).")
+parser.add_argument("--WANDB_RUN_NAME", type=str, default=None, help="Weights & Biases run name.")
 # Data / experiment setup.
-parser.add_argument("-TRAIN_PATH", type=str, required=True, help="Path to tokenized training data file.")
-parser.add_argument("-VAL_PATH", type=str, required=True, help="Path to tokenized validation data file.")
-parser.add_argument("-VOCAB_PATH", type=str, required=True, help="Pickled tokenizer vocab data file.")
-parser.add_argument("-MERGES_PATH", type=str, required=True, help="Pickled tokenizer merges data file.")
+parser.add_argument("--TRAIN_PATH", type=str, required=True, help="Path to tokenized training data file.")
+parser.add_argument("--VAL_PATH", type=str, required=True, help="Path to tokenized validation data file.")
+parser.add_argument("--VOCAB_PATH", type=str, required=True, help="Pickled tokenizer vocab data file.")
+parser.add_argument("--MERGES_PATH", type=str, required=True, help="Pickled tokenizer merges data file.")
 parser.add_argument("--BATCH_SIZE", type=int, default=32, help="Sequences per optimization step.")
 parser.add_argument("--CONTEXT_LENGTH", type=int, default=256, help="Tokens per training sequence.")
 parser.add_argument("--EPOCHES", type=int, default=500, help="Number of training epoches.")
@@ -74,7 +79,7 @@ MAX_ITERS = args.MAX_ITERS
 WARMUP_ITERS = args.WARMUP_ITERS
 
 DEVICE = args.DEVICE
-DTYPE = args.DTYPE
+DTYPE = DTYPE_DICT[args.DTYPE]
 
 CHECKPOINT_DIR = args.CHECKPOINT_DIR
 RESUME_FROM = args.RESUME_FROM
@@ -89,33 +94,19 @@ WANDB_RUN_NAME = args.WANDB_RUN_NAME
 print("==== Trainer arguments ====")
 for name in sorted(vars(args)):
     print(f"{name}: {getattr(args, name)}")
-
-run = wandb.init(project=f"tf-seed{SEED}-epoches{EPOCHES}")
-
-def save_checkpoint_and_log(model, optimizer, iteration, out):
-    """Save to local & Log to WanDB"""
-    # 1) Save locally
-    save_checkpoint(model, optimizer, iteration, out)
-
-    # 2) Wrap in an artifact
-    artifact = wandb.Artifact(
-        name="transformer-lm",   # logical name of this model family
-        type="model",
-        metadata={"iter": iteration},
-    )
-    artifact.add_file(out, name=os.path.basename(out))
-
-    # 3) Log artifact with aliases
-    run.log_artifact(
-        artifact,
-        aliases=[f"iter-{iteration}", "latest"],  # "latest" will keep moving
-    )
 print("===========================")
+
+# Prepared the logging 
+os.makedirs(CHECKPOINT_DIR, exist_ok=True)
+if not WANDB_PROJECT:
+    raise RuntimeError("Provide a WanDB Project to log the results.")
+run = wandb.init(project= WANDB_PROJECT, name=f"seed{SEED}-epoches{EPOCHES}")
+
 
 import argparse
 from src.lm import TransformerLM
 from src.train.optimizer import AdamW
-from src.train.checkpointing import load_checkpoint, save_checkpoint
+from src.train.checkpointing import load_checkpoint, save_checkpoint, save_checkpoint_and_log
 from src.train.data_loader import data_loading
 from src.train.loss import cross_entropy, perplexity
 from src.bpe_tokenizer.tokenizer import Tokenizer
@@ -131,11 +122,11 @@ toeknizer = Tokenizer.from_files(VOCAB_PATH, MERGES_PATH, special_tokens=["<|end
 train_data = np.load(TRAIN_PATH, mmap_mode="r")
 valid_data = np.load(VAL_PATH, mmap_mode="r")
 
-# Check if Data has the correct shape
-if len(train_data.shape) == 1:
-    train_data = train_data.unsqueeze(0)
-if len(valid_data.shape) == 1:
-    valid_data = valid_data.unsqueeze(0)
+# Pad a batch dimension for correct iterating
+if train_data.ndim == 1:
+    train_data = np.expand_dims(train_data, axis=0)
+if valid_data.ndim == 1:
+    valid_data = np.expand_dims(valid_data, axis=0)
 
 # Training Loop
 for iter in range(EPOCHES):

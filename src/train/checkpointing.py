@@ -32,3 +32,24 @@ def load_checkpoint(src, model, optimizer):
     model.load_state_dict(state_dict["model"])
     optimizer.load_state_dict(state_dict["optimizer"])
     return state_dict["iter"]
+
+
+
+def save_checkpoint_and_log(model, optimizer, iteration, out):
+    """Save to local & Log to WanDB"""
+    # 1) Save locally
+    save_checkpoint(model, optimizer, iteration, out)
+
+    # 2) Wrap in an artifact
+    artifact = wandb.Artifact(
+        name="transformer-lm",   # logical name of this model family
+        type="model",
+        metadata={"iter": iteration},
+    )
+    artifact.add_file(out, name=os.path.basename(out))
+
+    # 3) Log artifact with aliases
+    run.log_artifact(
+        artifact,
+        aliases=[f"iter-{iteration}", "latest"],  # "latest" will keep moving
+    )
