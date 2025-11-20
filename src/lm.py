@@ -127,7 +127,7 @@ class TransformerLM(nn.Module):
                  eps: float = 1e-5, # rmsnorm kwargs
                  latent_exp_factor = 8/3, # FNN kwargs
                  device=None, dtype=torch.float32,  # general kwargs
-                 ):
+    ):
         """
         A transformer block.
 
