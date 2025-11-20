@@ -23,7 +23,7 @@ def data_loading(x, batch_size, context_length, device="cpu"):
     sampled_output = []
 
     if context_length > seq_len:
-        raise("Insufficient raw text length for the given context_length.")
+        raise RuntimeError("Insufficient raw text length for the given context_length.")
 
     # Sample the starting index from 0 to (seq_len - batch_size - 1)
     start_idx = torch.randperm(seq_len - context_length)[:batch_size]
@@ -35,6 +35,6 @@ def data_loading(x, batch_size, context_length, device="cpu"):
         sampled_input.append(list(inputs))
         sampled_output.append(list(target))
     
-    input_seq = torch.tensor(sampled_input, device=device)
-    target_seq = torch.tensor(sampled_output, device=device)
+    input_seq = torch.tensor(sampled_input, device=device, dtype=torch.float32)
+    target_seq = torch.tensor(sampled_output, device=device, dtype=torch.float32)
     return input_seq, target_seq

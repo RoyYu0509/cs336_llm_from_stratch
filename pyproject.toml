@@ -20,8 +20,7 @@ dependencies = [
     "wandb>=0.19.7",
     "ty>=0.0.1a16",
     "jax >= 0.4.16",
-    "hypothesis >= 6.80.0"
-
+    "hypothesis >= 6.80.0",
 ]
 
 [build-system]

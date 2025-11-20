@@ -335,7 +335,7 @@ class BBPE(AbstractPreTokenizer):
             bs = self.id_2_bytes.get(tid)
             if bs is None:
                 # U+FFFD in UTF-8
-                byte_chunks.append(b"U+FFFD")
+                byte_chunks.append(b"\xEF\xBF\xBD")
             else:
                 byte_chunks.append(bs)
 

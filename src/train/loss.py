@@ -25,8 +25,13 @@ def cross_entropy(out_logits, reference):
     Output:
         - nll: A scalar loss value
     """
-    d = reference.shape[0]
-    seq_l = reference.shape[-1]
+    # Prevent the edge case that reference is a pure sequence. (No Batch)
+    if len(reference.shape) == 1:
+        d = reference.shape[0]
+        seq_l = 1
+    else:
+        d = reference.shape[0]
+        seq_l = reference.shape[-1]
     
     # Subtract max for numerical stability
     max_val, _ = torch.max(out_logits, dim=-1, keepdim=True) # Keep dim for Broadcasting
@@ -37,9 +42,9 @@ def cross_entropy(out_logits, reference):
     ref_words: Float[torch.Tensor, f"Batch, ..., Seq_len, 1"] = reference.unsqueeze(-1)
 
     # Cancel out log & exp to change the computation structure.
-    # o[xi+1] - log(exp(sum(o)))
-    nll = -(out_logits.gather(-1, ref_words) - logsumexp(out_logits, dim=-1))
-    loss = 1/(d*seq_l) * nll.sum()
+    # (o[xi+1]) - (logexpsum(o))
+    nll = (out_logits.gather(-1, ref_words)) - (logsumexp(out_logits, dim=-1, keepdim = True))
+    loss = 1/(d*seq_l) * -nll.sum()
     return loss
 
 
