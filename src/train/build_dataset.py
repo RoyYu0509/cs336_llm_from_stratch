@@ -20,20 +20,28 @@ import numpy as np
 from src.bpe_tokenizer.tokenizer import Tokenizer
 
 
-def _encode_file(tokenizer: Tokenizer, text_path: Path, eos_token: str) -> np.ndarray:
-    with text_path.open("r", encoding="utf-8") as f:
-        def _with_eos():
+def _encode_file(tokenizer: Tokenizer, text_path: Path, eos_token: str, max_size: int) -> np.ndarray:
+
+    def text_gen():
+        with text_path.open("r", encoding="utf-8") as f:
             for line in f:
                 yield line
-                if eos_token:
-                    yield eos_token
 
-        token_stream = tokenizer.encode_iterable(_with_eos())
-        return np.fromiter(token_stream, dtype=np.int32)
+    token_stream = tokenizer.encode_iterable(text_gen())
+    # Add a maximum rows
+    limited_stream = (
+        tok for _, tok in zip(range(max_size), token_stream)
+    ) if max_size is not None else token_stream
+
+    return np.fromiter(limited_stream, dtype=np.int32)
+
+
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Tokenize text files into .npy buffers.")
+    parser.add_argument("--train-size", type=int, required=True, help="Rows of training data")
+    parser.add_argument("--valid-size", type=int, required=True, help="Rows of validation data")
     parser.add_argument("--train-text", type=Path, required=True, help="Path to training text file.")
     parser.add_argument("--val-text", type=Path, required=True, help="Path to validation text file.")
     parser.add_argument("--vocab-path", type=Path, required=True, help="Tokenizer vocab pickle/json.")
@@ -57,8 +65,8 @@ def main() -> None:
 
     tokenizer = _load_tokenizer(args.vocab_path, args.merges_path)
 
-    train_tokens = _encode_file(tokenizer, args.train_text, "<|endoftext|>")
-    val_tokens = _encode_file(tokenizer, args.val_text, "<|endoftext|>")
+    train_tokens = _encode_file(tokenizer, args.train_text, "<|endoftext|>", args.train_size)
+    val_tokens = _encode_file(tokenizer, args.val_text, "<|endoftext|>", args.valid_size)
 
     train_out = args.out_dir / "train_tokens.npy"
     val_out = args.out_dir / "val_tokens.npy"
