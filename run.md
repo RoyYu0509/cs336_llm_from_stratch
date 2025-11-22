@@ -5,12 +5,14 @@ uv run python src/build_dataset.py \
     --vocab-path src/bpe_tokenizer/vocab_id2b_dict.pkl \
     --merges-path src/bpe_tokenizer/merges_seq.pkl \
     --out data/tokenized/train_tokens.npy
+    --num-workers 4
 
 uv run python src/build_dataset.py \
     --text-path data/TinyStoriesV2-GPT4-valid.txt \
     --vocab-path src/bpe_tokenizer/vocab_id2b_dict.pkl \
     --merges-path src/bpe_tokenizer/merges_seq.pkl \
     --out data/tokenized/val_tokens.npy
+    --num-workers 4
 ```
 
 # Train the LM using the NumPy Data
