@@ -57,12 +57,16 @@ class Tokenizer(BBPE):
         """Encode an input text into a sequence of token IDs."""
         return self.encoding(text)
     
-    def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
+    def encode_iterable(self, iterable: Iterable[str], max_iter=None) -> Iterator[int]:
         """
         Given an iterable of strings (e.g., a Python file handle), 
         return a generator that lazily yields token IDs.
         """
         for string in iterable:
+            if max_iter is not None:
+                max_iter -= 1
+                if max_iter < 0:
+                    break
             for byte_id in self.encode(string):
                 yield byte_id
 

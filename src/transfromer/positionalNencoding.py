@@ -33,7 +33,7 @@ class RoPE:
              [_cos, -_sin],
              [_sin,  _cos]
             ],
-            dtype=torch.float64
+            dtype=torch.float32
         )
         return rotMat_ik
 

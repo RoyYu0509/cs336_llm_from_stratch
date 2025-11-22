@@ -36,7 +36,7 @@ parser.add_argument("--BETA1", type=float, default=0.9, help="AdamW beta1.")
 parser.add_argument("--BETA2", type=float, default=0.999, help="AdamW beta2.")
 parser.add_argument("--ADAM_EPS", type=float, default=1e-8, help="AdamW epsilon.")
 parser.add_argument("--GRAD_CLIP", type=float, default=1.0, help="Global gradient norm clip value.")
-parser.add_argument("--MAX_ITERS", type=int, default=50_000, help="Number of optimizer steps.")
+parser.add_argument("--MAX_ITERS", type=int, default=10_000, help="Number of optimizer steps.")
 parser.add_argument("--WARMUP_ITERS", type=int, default=2_000, help="Linear warmup steps.")
 
 # Device.
