@@ -3,6 +3,8 @@ from numpy.conftest import dtype
 from src.bpe_tokenizer.tokenizerBackEnd import BBPE
 import json
 from typing import Iterable, Iterator
+import pickle
+
 
 class Tokenizer(BBPE):
     def __init__(self, vocab=None, merges=None, special_tokens=None):
@@ -39,21 +41,13 @@ class Tokenizer(BBPE):
 
     @classmethod
     def from_files(cls, vocab_filepath, merges_filepath, special_tokens=None):
-        with open(vocab_filepath, "r", encoding="utf-8") as f:
-            vocab_json = json.load(f)
-        vocab = {int(k): bytes(v) if isinstance(v, list) else v.encode("latin-1")
-                for k, v in vocab_json.items()}
+        # Load vocab from pickle
+        with open(vocab_filepath, "rb") as f:
+            vocab = pickle.load(f)  # already a dict[int, bytes] or similar
 
-        merges = []
-        with open(merges_filepath, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                left_str, right_str = line.split()
-                left = left_str.encode("latin-1")
-                right = right_str.encode("latin-1")
-                merges.append((left, right))
+        # Load merges from pickle
+        with open(merges_filepath, "rb") as f:
+            merges = pickle.load(f)  # already a list of tuples (bytes, bytes)
 
         return cls(vocab=vocab, merges=merges, special_tokens=special_tokens)
 

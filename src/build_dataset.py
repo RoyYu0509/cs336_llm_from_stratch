@@ -21,20 +21,28 @@ from src.bpe_tokenizer.tokenizer import Tokenizer
 
 
 def _encode_file(tokenizer: Tokenizer, text_path: Path, eos_token: str, max_size: int) -> np.ndarray:
-
     def text_gen():
+        eos_count = 0
+        line_count = 0
         with text_path.open("r", encoding="utf-8") as f:
             for line in f:
+                line_count += 1
                 yield line
 
+                # Count EOS lines
+                if line.strip() == eos_token:
+                    eos_count += 1
+                    # Stop reading more lines if reached max_size
+                    if max_size is not None and eos_count >= max_size:
+                        break
+
+                # Print progress every 10 lines
+                if line_count % 100 == 0:
+                    print(f"Processed {line_count} lines...")
+
     token_stream = tokenizer.encode_iterable(text_gen())
-    # Add a maximum rows
-    limited_stream = (
-        tok for _, tok in zip(range(max_size), token_stream)
-    ) if max_size is not None else token_stream
 
-    return np.fromiter(limited_stream, dtype=np.int32)
-
+    return np.fromiter(token_stream, dtype=np.int32)
 
 
 
@@ -65,7 +73,9 @@ def main() -> None:
 
     tokenizer = _load_tokenizer(args.vocab_path, args.merges_path)
 
+    print("Encoding training data...")
     train_tokens = _encode_file(tokenizer, args.train_text, "<|endoftext|>", args.train_size)
+    print("Encoding validation data...")
     val_tokens = _encode_file(tokenizer, args.val_text, "<|endoftext|>", args.valid_size)
 
     train_out = args.out_dir / "train_tokens.npy"
