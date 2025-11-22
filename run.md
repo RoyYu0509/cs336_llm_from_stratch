@@ -1,12 +1,12 @@
 # Build the NumPy data from the raw text
 ```
 uv run python src/build_dataset.py \
-    --train-text data/train.txt \
-    --val-text data/valid.txt \
+    --train-text data/TinyStoriesV2-GPT4-train.txt \
+    --val-text data/TinyStoriesV2-GPT4-valid.txt \
     --vocab-path src/bpe_tokenizer/vocab_id2b_dict.pkl \
     --merges-path src/bpe_tokenizer/merges_seq.pkl \
-    --train-size 10000 \
-    --valid-size 2000 \
+    --train-size 1000 \
+    --valid-size 500 \
     --out-dir data/tokenized
 ```
 

@@ -15,7 +15,7 @@ from torch import logsumexp
 
 def data_loading(x, batch_size, context_length, device="cpu"):
     """
-    Sample `batch_size` number of data from the input sequence x.
+    Sample `batch_size` number of data from a 1-Dimensional sequence `x`.
     """
     x: Int[np.array, f"Seq"]
     seq_len = x.shape[0]
@@ -35,6 +35,6 @@ def data_loading(x, batch_size, context_length, device="cpu"):
         sampled_input.append(list(inputs))
         sampled_output.append(list(target))
     
-    input_seq = torch.tensor(sampled_input, device=device, dtype=torch.float32)
-    target_seq = torch.tensor(sampled_output, device=device, dtype=torch.float32)
+    input_seq = torch.tensor(sampled_input, device=device, dtype=torch.long)
+    target_seq = torch.tensor(sampled_output, device=device, dtype=torch.long)
     return input_seq, target_seq

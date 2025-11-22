@@ -17,7 +17,8 @@ parser.add_argument("--TRAIN_PATH", type=str, required=True, help="Path to token
 parser.add_argument("--VAL_PATH", type=str, required=True, help="Path to tokenized validation data file.")
 parser.add_argument("--VOCAB_PATH", type=str, required=True, help="Pickled tokenizer vocab data file.")
 parser.add_argument("--MERGES_PATH", type=str, required=True, help="Pickled tokenizer merges data file.")
-parser.add_argument("--BATCH_SIZE", type=int, default=32, help="Sequences per optimization step.")
+parser.add_argument("--TR_BAT_SIZE", type=int, default=32, help="Sequences per optimization step.")
+parser.add_argument("--VAL_BAT_SIZE", type=int, default=32, help="Sequences per optimization step.")
 parser.add_argument("--CONTEXT_LENGTH", type=int, default=256, help="Tokens per training sequence.")
 parser.add_argument("--EPOCHES", type=int, default=500, help="Number of training epoches.")
 
@@ -59,7 +60,8 @@ TRAIN_PATH = args.TRAIN_PATH
 VAL_PATH = args.VAL_PATH
 VOCAB_PATH = args.VOCAB_PATH
 MERGES_PATH = args.MERGES_PATH
-BATCH_SIZE = args.BATCH_SIZE
+TR_BAT_SIZE = args.TR_BAT_SIZE
+VAL_BAT_SIZE = args.VAL_BAT_SIZE
 EPOCHES = args.EPOCHES
 
 CONTEXT_LENGTH = args.CONTEXT_LENGTH
@@ -111,6 +113,7 @@ from src.train.data_loader import data_loading
 from src.train.loss import cross_entropy, perplexity
 from src.bpe_tokenizer.tokenizer import Tokenizer
 import numpy as np
+from tqdm import tqdm
 
 # Initialize Modules
 lm_model = TransformerLM(VOCAB_SIZE, CONTEXT_LENGTH, NUM_LAYERS, D_MODEL, NUM_HEADS, D_FF, ROPE_THETA,
@@ -118,54 +121,48 @@ lm_model = TransformerLM(VOCAB_SIZE, CONTEXT_LENGTH, NUM_LAYERS, D_MODEL, NUM_HE
 opt = AdamW(lm_model.parameters(), LR, WEIGHT_DECAY, BETAS)
 toeknizer = Tokenizer.from_files(VOCAB_PATH, MERGES_PATH, special_tokens=["<|endoftext|>"])
 
-# Collect Data
+# Prepare a data loader
 train_data = np.load(TRAIN_PATH, mmap_mode="r")
 valid_data = np.load(VAL_PATH, mmap_mode="r")
 
-# Pad a batch dimension for correct iterating
-if train_data.ndim == 1:
-    train_data = np.expand_dims(train_data, axis=0)
-if valid_data.ndim == 1:
-    valid_data = np.expand_dims(valid_data, axis=0)
-
+checkpoint_num = 1
 # Training Loop
 for iter in range(EPOCHES):
-    for x in train_data:
-        # Reset the gradients for all learnable parameters.
-        opt.zero_grad() 
-        inputs, targets = data_loading(x, BATCH_SIZE, CONTEXT_LENGTH, DEVICE)
-        prediction = lm_model.forward(inputs)
-        tr_loss = cross_entropy(prediction, targets)
-        tr_loss.backward() # The returned loss is a Tensor, with a computational graph attached, so that we can bp
-        opt.step() # After bp, all parameters' tensors have collect grad values
+    inputs, targets = data_loading(train_data, TR_BAT_SIZE, CONTEXT_LENGTH, DEVICE)
+    # Reset the gradients for all learnable parameters.
+    opt.zero_grad() 
     
+    prediction = lm_model.forward(inputs)
+    tr_loss = cross_entropy(prediction, targets)
+    tr_loss.backward() # The returned loss is a Tensor, with a computational graph attached, so that we can bp
+    opt.step() # After bp, all parameters' tensors have collect grad values
+
     if iter % EVAL_INTERVAL == 0:
         # Compute the Validation Loss (Perplexity)
         val_loss = 0
-        for x in valid_data:
-            inputs, targets = data_loading(x, BATCH_SIZE, CONTEXT_LENGTH, DEVICE)
-            prediction = lm_model.forward(inputs)
-            val_loss += perplexity(prediction, targets)
-        print(f"Training Loss: {tr_loss} | Validation Loss: {val_loss}")
+        inputs, targets = data_loading(valid_data, VAL_BAT_SIZE, CONTEXT_LENGTH, DEVICE)
+        prediction = lm_model.forward(inputs)
+        val_loss += perplexity(prediction, targets)
+        print(f"Iter:{iter} | Training Loss: {tr_loss} | Validation Loss: {val_loss}")
 
-    if iter % SAVE_INTERVAL == 0:
+    if iter != 0 and iter % SAVE_INTERVAL == 0:
         # Compute the Validation Loss (Perplexity)
         val_loss = 0
-        for x in valid_data:
-            inputs, targets = data_loading(x, BATCH_SIZE, CONTEXT_LENGTH, DEVICE)
-            prediction = lm_model.forward(inputs)
-            val_loss += perplexity(prediction, targets)
-        print(f"Training Loss: {tr_loss} | Validation Loss: {val_loss}")
+        inputs, targets = data_loading(valid_data, VAL_BAT_SIZE, CONTEXT_LENGTH, DEVICE)
+        prediction = lm_model.forward(inputs)
+        val_loss += perplexity(prediction, targets)
+        print(f"Saving Checkpoint....")
+        print(f"Checkpoing {checkpoint_num}: Training Loss: {tr_loss} | Validation Loss: {val_loss}")
 
         # Log into WanDB
-        local_checkpoint_path = os.path.join(CHECKPOINT_DIR, f"iter_{iter}.pt")
-        save_checkpoint_and_log(lm_model, opt, iter, out=local_checkpoint_path)
-    
-    
-        
+        local_checkpoint_path = os.path.join(CHECKPOINT_DIR, f"checkpoint{checkpoint_num}iter_{iter}.pt")
+        save_checkpoint_and_log(lm_model, opt, iter, local_checkpoint_path, run)
+        checkpoint_num+=1
+
+
+            
 
     
     
 
         
-

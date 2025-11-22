@@ -21,6 +21,12 @@ from src.bpe_tokenizer.tokenizer import Tokenizer
 
 
 def _encode_file(tokenizer: Tokenizer, text_path: Path, max_size: int) -> np.ndarray:
+    """
+    Return a 1D tokenized text stream from the `text_path`.
+
+    The function reads row by row from a training text files, and serialized it
+    into one gaint token stream.
+    """
     def text_gen():
         line_count = 0
         with text_path.open("r", encoding="utf-8") as f:
@@ -32,7 +38,6 @@ def _encode_file(tokenizer: Tokenizer, text_path: Path, max_size: int) -> np.nda
                     print(f"Processed {line_count} lines...")
 
     token_stream = tokenizer.encode_iterable(text_gen(), max_size)
-
     return np.fromiter(token_stream, dtype=np.int32)
 
 

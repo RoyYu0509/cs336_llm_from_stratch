@@ -1,4 +1,6 @@
 import torch
+import os
+import wandb
 
 def save_checkpoint(model, optimizer, iteration, out): 
     """
@@ -35,7 +37,7 @@ def load_checkpoint(src, model, optimizer):
 
 
 
-def save_checkpoint_and_log(model, optimizer, iteration, out):
+def save_checkpoint_and_log(model, optimizer, iteration, out, wandb_run):
     """Save to local & Log to WanDB"""
     # 1) Save locally
     save_checkpoint(model, optimizer, iteration, out)
@@ -49,7 +51,7 @@ def save_checkpoint_and_log(model, optimizer, iteration, out):
     artifact.add_file(out, name=os.path.basename(out))
 
     # 3) Log artifact with aliases
-    run.log_artifact(
+    wandb_run.log_artifact(
         artifact,
         aliases=[f"iter-{iteration}", "latest"],  # "latest" will keep moving
     )

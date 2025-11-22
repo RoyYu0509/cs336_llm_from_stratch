@@ -21,7 +21,7 @@ class Rmsnorm(torch.nn.Module):
 
         self.eps = eps       
 
-        gain = torch.ones(d_model)
+        gain = torch.ones(d_model, dtype=self.dtype, device=self.device)
         self.gain: Float[torch.Tensor, "d_model"] = torch.nn.Parameter(gain)
         
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -45,7 +45,7 @@ class Rmsnorm(torch.nn.Module):
         
         # Compute RMS
         mean_squared_sum_x = reduce(squared_x_gain, "... d_model -> ...", "mean")
-        eps = torch.ones_like(mean_squared_sum_x) * self.eps
+        eps = torch.ones_like(mean_squared_sum_x, dtype=torch.float32, device=self.device) * self.eps
         rms_x: Float[torch.Tensor, "batch_size, sequence_length, 1"]= torch.sqrt(mean_squared_sum_x+eps).unsqueeze(-1)
         
         return ((x)/rms_x * self.gain).to(x_dtype) # scale back to input dtype
