@@ -72,3 +72,11 @@ def generate_text(model, tokenizer, input_text, max_new_tokens, temperature, top
     return tokenizer.decode(generated_tokens)
 
 
+
+def main():
+    generated_text = generate_text(model, toeknizer, INPUT_TEXT, MAX_NEW_TOKENS, TEMPERATURE, TOP_P, DEVICE)
+    print("Generated Text:")
+    print(generated_text)
+
+if __name__ == "__main__":
+    main()

@@ -31,3 +31,19 @@ uv run python src/trainer.py \
     --EVAL_INTERVAL 100 \
     --SAVE_INTERVAL 500
 ```
+
+
+# Text Generation
+```
+python your_script_name.py \
+    --model-checkpoint /path/to/your/model.ckpt \
+    --input-text "Once upon a time" \
+    --vocab-path /path/to/vocab.json \
+    --merges-path /path/to/merges.txt \
+    --max-new-tokens 50 \
+    --temperature 1.0 \
+    --top-k 50 \
+    --top-p 0.95 \
+    --device cuda \
+    --dtype float32
+```
